@@ -12,6 +12,9 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ * ADM - 8/1/2017 I updated this to have different values for battery percentages and fix a couple of typos in lines around 210
+ Alec Mclure 
+ *
  */
 
 metadata {
@@ -38,16 +41,19 @@ metadata {
                 attributeState "closed", label: '${name}', icon:"st.contact.contact.closed", backgroundColor:"#79b821"
             }
             tileAttribute("device.battery", key: "SECONDARY_CONTROL") {
-            	attributeState "battery", label:'${currentValue}% battery', unit:""
+            	attributeState "battery", label:'${currentValue} % battery', unit:""
             }
         }
-		standardTile("contact", "device.contact", width: 2, height: 2, canChangeIcon: true) {
-			state("open", label:'${name}', icon:"st.contact.contact.open", backgroundColor:"#ffa81e")
-			state("closed", label:'${name}', icon:"st.contact.contact.closed", backgroundColor:"#79b821")
-		}
+		///standardTile("contact", "device.contact", width: 2, height: 2, canChangeIcon: true) {   ///ADM - 11/23//2016 Commented out as contact and battery were put into multitile by MPond - see 
+		///	state("open", label:'${name}', icon:"st.contact.contact.open", backgroundColor:"#ffa81e")// comment below on richcontact at line 61
+		///	state("closed", label:'${name}', icon:"st.contact.contact.closed", backgroundColor:"#79b821")
+		///}
         
-		valueTile("battery", "device.battery", decoration: "flat") {
-			state "battery", label:'${currentValue}% battery', unit:""
+		///valueTile("battery", "device.battery", decoration: "flat") {
+		///	state "battery", label:'${currentValue}% battery', unit:""
+		///}
+       // valueTile("voltreport", "device.voltreport", decoration: "flat", width:2, height: 2) {   //ADM - 11/23/2016 added this separate tile so can get voltage in addition to percent
+		///	state "voltreport", label:'${currentValue}', unit:"" // ADM 11-25-2016 - gave up for now on reporting both percentage and units 
 		}
         
 		standardTile("tamper", "device.tamper", decoration: "flat", width:2, height: 2) {
@@ -56,9 +62,12 @@ metadata {
 		}
         
 		main ("richcontact")
-		details(["richcontact","tamper"]) //removed "contact", "battery"
+		//details(["richcontact","tamper","voltreport"]) //removed "contact", "battery"  //ADM 11-25-2016 - gave up on voltreport for now 
+        details(["richcontact","tamper"]) //removed "contact", "battery"
 	}
-}
+
+
+
 
 // Parse incoming device messages to generate events
 def parse(String description) {
@@ -154,6 +163,11 @@ private parseReportAttributeMessage(String description) {
 		log.debug "Received battery level report"
 		results = createEvent(getBatteryResult(Integer.parseInt(descMap.value, 16)))
 	}
+    
+ //   if (descMap.cluster == "0001" && descMap.attrId == "0020") {    //11-25-1016 gave up on voltreport for now (reporting volts in addition to mapped percentage)
+//		log.debug "Received battery level report"
+//		results = createEvent2(getBatteryResult2(Integer.parseInt(descMap.value, 16)))
+//	}
 
 	return results
 }
@@ -197,23 +211,47 @@ private parseIasMessage(String description) {
 //Converts the battery level response into a percentage to display in ST
 //and creates appropriate message for given level
 
+//ADM - 8-31-2016 Added mapping values for 34 -29 to map below -since they were valid values - 3 or 2.9  volts were returning null
+
 private getBatteryResult(volts) {
-	def batteryMap = [28:100, 27:100, 26:75, 25:50, 24:25, 23:20,
+	def batteryMap = [34:100, 33:100, 32:100, 31:100, 30:100, 29:95, 28:90, 27:80, 26:75, 25:50, 24:25, 23:20,
                           22:10, 21:0]
 	def minVolts = 21
-	def maxVolts = 30
+    //ADM 10-2-2016 changed maxvolts to 34 to see what really getting w/ new battery
+	def maxVolts = 34  
 	def linkText = getLinkText(device)
 	def result = [name: 'battery']
-	log.debug("${linkText} reports batery voltage at ${rawValue/10}") //added logging for voltage level to help determine actual min voltage from users
+	
     
     if (volts < minVolts) volts = minVolts
     	else if (volts > maxVolts) volts = maxVolts
     
-    result.value = batteryMap[volts]
+    result.value = batteryMap[volts]   
     result.descriptionText = "${linkText} battery was ${result.value}%"
-
+    log.debug("${linkText} reports battery voltage at ${result.value}%") //added logging for voltage level to help determine actual min voltage from users
 	return result
 }
+//////////
+
+//private getBatteryResult2(volts) {    //This one returns value in volts  -  11-25-2016 - ADM - gave up on this for now - tricky to get the two results
+	
+//	def minVolts = 21
+    //ADM 10-2 changed maxvolts to 34 to see what really getting w/ new battery
+//	def maxVolts = 34  
+//	def linkText = getLinkText(device)
+//    def result = [name: 'voltreport']
+//	log.debug("${linkText} voltreport reports battery voltage at ${volts/10}") //added logging for voltage level to help determine actual min voltage from users
+    
+//    if (volts < minVolts) volts = minVolts
+//    	else if (volts > maxVolts) volts = maxVolts
+
+ //   result.value = volts/10
+//    result.descriptionText = "${linkText} battery was ${result.value} volts"  //ADM 11/23/16 - trying to send back both results, percentage (battery) and volts/10 (voltreport)
+
+//	return result
+//}
+
+//////////////
 
 
 private Map getContactResult(value) {
